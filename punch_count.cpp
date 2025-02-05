@@ -46,89 +46,89 @@ DEFINE_double(render_threshold, 0.05, "Only estimated keypoints whose score conf
 DEFINE_double(alpha_pose, 0.6, "Blending factor (range 0-1) for the body part rendering. 1 will show it completely, 0 will"
 	" hide it. Only valid for GPU rendering.");
 
-#define IMAGE_WIDTH 640        // RGB-DƒJƒƒ‰‚ÌƒtƒŒ[ƒ€‰æ‘œ‚Ì•
-#define IMAGE_HEIGHT 360       // RGB-DƒJƒƒ‰‚ÌƒtƒŒ[ƒ€‰æ‘œ‚Ì‚‚³
-#define NUMBER_OF_JOINTS 25    // ŠÖß”
-#define MINIMUM_CONFIDENCE 0.1 // M—Š“x‚Ì‹–—eÅ¬’l
-#define KNN_NUMBER 3           // kNN–@‚ÌÅ‹ß–T”
+#define IMAGE_WIDTH 640        // RGB-Dã‚«ãƒ¡ãƒ©ã®ãƒ•ãƒ¬ãƒ¼ãƒ ç”»åƒã®å¹…
+#define IMAGE_HEIGHT 360       // RGB-Dã‚«ãƒ¡ãƒ©ã®ãƒ•ãƒ¬ãƒ¼ãƒ ç”»åƒã®é«˜ã•
+#define NUMBER_OF_JOINTS 25    // é–¢ç¯€æ•°
+#define MINIMUM_CONFIDENCE 0.1 // ä¿¡é ¼åº¦ã®è¨±å®¹æœ€å°å€¤
+#define KNN_NUMBER 3           // kNNæ³•ã®æœ€è¿‘å‚æ•°
 
-// ŠÖ”ƒvƒƒgƒ^ƒCƒvéŒ¾
+// é–¢æ•°ãƒ—ãƒ­ãƒˆã‚¿ã‚¤ãƒ—å®£è¨€
 int clusteringPostures(Mat posturesForClustering, int numberOfClusters, Mat*clusteredLabels);
 void drawJoint(int i, int j, float c, float x, float y, Mat plane);
 void drawLimb(Mat postures, int sample, int person, Mat image);
 void removeWindowsForClusteredCenters(int number_of_clusters);
 
-// l•¨•\¦F‚Ìİ’è
+// äººç‰©è¡¨ç¤ºè‰²ã®è¨­å®š
 Scalar color[7] =
 { Scalar(255,0,0),Scalar(0,255,0),Scalar(0,0,255),
   Scalar(0,255,255),Scalar(255,0,255),Scalar(255,255,0),Scalar(255,255,255) };
 
-// Še‘Ìß‚ÌŠÖß‘Î
+// å„ä½“ç¯€ã®é–¢ç¯€å¯¾
 int limb[15][2] =
 { {1,2},{2,3},{3,4},{1,5},{5,6},{6,7},{1,8},{8,9},
   {8,12},{9,10},{10,11},{12,13},{13,14},{11,22},{14,20} };
-#include <map> // ƒNƒ‰ƒXƒ^ID‚É‘Î‰‚·‚éƒpƒ“ƒ`–¼‚ğŠÇ—
+#include <map> // ã‚¯ãƒ©ã‚¹ã‚¿IDã«å¯¾å¿œã™ã‚‹ãƒ‘ãƒ³ãƒåã‚’ç®¡ç†
 
-// ƒpƒ“ƒ`–¼‚Æ‚»‚ÌƒJƒEƒ“ƒg
+// ãƒ‘ãƒ³ãƒåã¨ãã®ã‚«ã‚¦ãƒ³ãƒˆ
 std::map<int, std::string> clusterToPunchType;
 std::map<std::string, int> punchCounts;
 
 
-// ƒNƒ‰ƒXƒ^–¼‚Ì‰Šú‰»ŠÖ”
+// ã‚¯ãƒ©ã‚¹ã‚¿åã®åˆæœŸåŒ–é–¢æ•°
 
 
 
 int main(int argc, char *argv[])
 {
-	// --------------ƒrƒfƒI“Ç‚İ‚İ----------------------------------
+	// --------------ãƒ“ãƒ‡ã‚ªèª­ã¿è¾¼ã¿----------------------------------
 	int flag = 0;
 	cv::VideoCapture video("sample.mp4");
 	cv::VideoCapture video2("test.mp4");
-	if (!video.isOpened()) { // ƒGƒ‰[ˆ—
+	if (!video.isOpened()) { // ã‚¨ãƒ©ãƒ¼å‡¦ç†
 		std::cout << "video.error" << std::endl;
 		return -1;
 	}
-	if (!video2.isOpened()) { // ƒGƒ‰[ˆ—
+	if (!video2.isOpened()) { // ã‚¨ãƒ©ãƒ¼å‡¦ç†
 		std::cout << "video.error" << std::endl;
 		return -1;
 	}
 	Mat colorImage;
 
-	cv::Mat frame, gray, canny; // ƒtƒŒ[ƒ€Ši”[—p
+	cv::Mat frame, gray, canny; // ãƒ•ãƒ¬ãƒ¼ãƒ æ ¼ç´ç”¨
 
-	int width = video.get(cv::CAP_PROP_FRAME_WIDTH); // “®‰æ‚©‚ç•‚ğæ“¾
-	int height = video.get(cv::CAP_PROP_FRAME_HEIGHT); // “®‰æ‚©‚ç‚‚³‚ğæ“¾
-	int count = 0; //ƒpƒ“ƒ`‚Ì”‚ğ”‚¦‚é
-	int presponse = -1; //‘O‰ñ‚Ìresponse‚Ì’l
-	int presponse2 = -2;//‘OX‰ñ‚Ìresponce‚Ì’l
-	float prevLeftHandX = 0, prevLeftHandY = 0; // ¶è‚Ì‘O‰ñˆÊ’u
-	float prevRightHandX = 0, prevRightHandY = 0; // ‰Eè‚Ì‘O‰ñˆÊ’u
-	const float punchThreshold = 30.0; // ƒpƒ“ƒ`ŒŸo‚ÌˆÚ“®—Ê‚µ‚«‚¢’l
+	int width = video.get(cv::CAP_PROP_FRAME_WIDTH); // å‹•ç”»ã‹ã‚‰å¹…ã‚’å–å¾—
+	int height = video.get(cv::CAP_PROP_FRAME_HEIGHT); // å‹•ç”»ã‹ã‚‰é«˜ã•ã‚’å–å¾—
+	int count = 0; //ãƒ‘ãƒ³ãƒã®æ•°ã‚’æ•°ãˆã‚‹
+	int presponse = -1; //å‰å›ã®responseã®å€¤
+	int presponse2 = -2;//å‰ã€…å›ã®responceã®å€¤
+	float prevLeftHandX = 0, prevLeftHandY = 0; // å·¦æ‰‹ã®å‰å›ä½ç½®
+	float prevRightHandX = 0, prevRightHandY = 0; // å³æ‰‹ã®å‰å›ä½ç½®
+	const float punchThreshold = 30.0; // ãƒ‘ãƒ³ãƒæ¤œå‡ºã®ç§»å‹•é‡ã—ãã„å€¤
 
-	// <<<---------- RGB - DƒJƒƒ‰‚ğg‚¤ê‡‚Ì‰Šú‰»ˆ—‚±‚±‚©‚ç ----------
+	// <<<---------- RGB - Dã‚«ãƒ¡ãƒ©ã‚’ä½¿ã†å ´åˆã®åˆæœŸåŒ–å‡¦ç†ã“ã“ã‹ã‚‰ ----------
 
-	// ‹——£‰æ‘œ‚ğƒJƒ‰[‰æ‘œ‚É‡‚í‚¹‚é‚½‚ß‚Ìƒpƒ‰ƒ[ƒ^İ’è
+	// è·é›¢ç”»åƒã‚’ã‚«ãƒ©ãƒ¼ç”»åƒã«åˆã‚ã›ã‚‹ãŸã‚ã®ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿è¨­å®š
 	//rs2::align alignToColor(RS2_STREAM_COLOR);
 
-	// ƒJƒ‰[‰æ‘œ‚Æ‹——£‰æ‘œ‚Ì‰f‘œƒXƒgƒŠ[ƒ€‚ÌŠK’²”‚ÆƒtƒŒ[ƒ€ƒŒ[ƒgİ’è
+	// ã‚«ãƒ©ãƒ¼ç”»åƒã¨è·é›¢ç”»åƒã®æ˜ åƒã‚¹ãƒˆãƒªãƒ¼ãƒ ã®éšèª¿æ•°ã¨ãƒ•ãƒ¬ãƒ¼ãƒ ãƒ¬ãƒ¼ãƒˆè¨­å®š
 	//config streamConfig;
 	/*streamConfig.enable_stream(RS2_STREAM_COLOR, IMAGE_WIDTH, IMAGE_HEIGHT, RS2_FORMAT_BGR8, 30);
 	streamConfig.enable_stream(RS2_STREAM_DEPTH, RS2_FORMAT_Z16, 30);
 */
-// ‰f‘œƒXƒgƒŠ[ƒ~ƒ“ƒOŠJn
+// æ˜ åƒã‚¹ãƒˆãƒªãƒ¼ãƒŸãƒ³ã‚°é–‹å§‹
 ///pipeline pipeLine;
 //auto profile = pipeLine.start(streamConfig);
 
-// ---------- RGB - DƒJƒƒ‰‚ğg‚¤ê‡‚Ì‰Šú‰»ˆ—‚±‚±‚Ü‚Å ---------->>>
+// ---------- RGB - Dã‚«ãƒ¡ãƒ©ã‚’ä½¿ã†å ´åˆã®åˆæœŸåŒ–å‡¦ç†ã“ã“ã¾ã§ ---------->>>
 
-// <<<---------- ’ÊíƒJƒƒ‰‚ğg‚¤ê‡‚Ì‰Šú‰»ˆ—‚±‚±‚©‚ç ----------
+// <<<---------- é€šå¸¸ã‚«ãƒ¡ãƒ©ã‚’ä½¿ã†å ´åˆã®åˆæœŸåŒ–å‡¦ç†ã“ã“ã‹ã‚‰ ----------
 
 //VideoCapture camera;
-//camera.open(0); // ƒJƒƒ‰”Ô†‚Í“K“–‚È‚à‚Ì‚ğƒZƒbƒg
+//camera.open(0); // ã‚«ãƒ¡ãƒ©ç•ªå·ã¯é©å½“ãªã‚‚ã®ã‚’ã‚»ãƒƒãƒˆ
 
-// ---------- ’ÊíƒJƒƒ‰‚ğg‚¤ê‡‚Ì‰Šú‰»ˆ—‚±‚±‚Ü‚Å ---------->>>
+// ---------- é€šå¸¸ã‚«ãƒ¡ãƒ©ã‚’ä½¿ã†å ´åˆã®åˆæœŸåŒ–å‡¦ç†ã“ã“ã¾ã§ ---------->>>
 
-// <<<---------- OpenPose‚ğg‚¤‚½‚ß‚Ì‰Šú‰»ˆ—‚±‚±‚©‚ç ----------
+// <<<---------- OpenPoseã‚’ä½¿ã†ãŸã‚ã®åˆæœŸåŒ–å‡¦ç†ã“ã“ã‹ã‚‰ ----------
 
 	const auto outputSize = flagsToPoint(FLAGS_output_resolution, "-1x-1");
 	const auto netInputSize = flagsToPoint(FLAGS_net_resolution, "-1x368");
@@ -144,36 +144,36 @@ int main(int argc, char *argv[])
 	PoseExtractorCaffe poseExtractorCaffe{ poseModel, FLAGS_model_folder, FLAGS_num_gpu_start };
 	poseExtractorCaffe.initializationOnThread();
 
-	// ---------- OpenPose‚ğg‚¤‚½‚ß‚Ì‰Šú‰»ˆ—‚±‚±‚Ü‚Å ---------->>>
+	// ---------- OpenPoseã‚’ä½¿ã†ãŸã‚ã®åˆæœŸåŒ–å‡¦ç†ã“ã“ã¾ã§ ---------->>>
 
-	// <<<---------- ƒNƒ‰ƒXƒ^ƒŠƒ“ƒO‚Ì‚½‚ß‚Ì‰Šú‰»ˆ—‚±‚±‚©‚ç ----------
+	// <<<---------- ã‚¯ãƒ©ã‚¹ã‚¿ãƒªãƒ³ã‚°ã®ãŸã‚ã®åˆæœŸåŒ–å‡¦ç†ã“ã“ã‹ã‚‰ ----------
 
-	// ƒNƒ‰ƒXƒ^ƒŠƒ“ƒO‘ÎÛp¨‚Ì•Û‘¶—p”z—ñ‚ÌéŒ¾iÅ‰‚Íb’è“I‚È‚PƒTƒ“ƒvƒ‹‚Ì‚İ•Û‘¶‰Â”\‚ÈƒTƒCƒY <-- MatŒ^‚ÌƒTƒCƒY‹Lq•û–@‚É’ˆÓFMat (int rows, int cols, int type) j
+	// ã‚¯ãƒ©ã‚¹ã‚¿ãƒªãƒ³ã‚°å¯¾è±¡å§¿å‹¢ã®ä¿å­˜ç”¨é…åˆ—ã®å®£è¨€ï¼ˆæœ€åˆã¯æš«å®šçš„ãªï¼‘ã‚µãƒ³ãƒ—ãƒ«ã®ã¿ä¿å­˜å¯èƒ½ãªã‚µã‚¤ã‚º <-- Matå‹ã®ã‚µã‚¤ã‚ºè¨˜è¿°æ–¹æ³•ã«æ³¨æ„ï¼šMat (int rows, int cols, int type) ï¼‰
 	Mat posturesForClustering = Mat(1, 3 * NUMBER_OF_JOINTS, CV_32FC1);
 	Mat posturesForClustering2 = Mat(1, 3 * NUMBER_OF_JOINTS, CV_32FC1);
 
-	int storedSamples = 0;	// Ši”[Ïƒf[ƒ^”iÅ‰‚Í0j
-	int save = -1;			// ƒf[ƒ^•Û‘¶‚Ì—L–³iÅ‰‚Í•Û‘¶‚È‚µƒ‚[ƒhj
+	int storedSamples = 0;	// æ ¼ç´æ¸ˆãƒ‡ãƒ¼ã‚¿æ•°ï¼ˆæœ€åˆã¯0ï¼‰
+	int save = -1;			// ãƒ‡ãƒ¼ã‚¿ä¿å­˜ã®æœ‰ç„¡ï¼ˆæœ€åˆã¯ä¿å­˜ãªã—ãƒ¢ãƒ¼ãƒ‰ï¼‰
 
-	// ƒNƒ‰ƒXƒ^”w’è—pƒgƒ‰ƒbƒNƒo[‚Ìİ’u
+	// ã‚¯ãƒ©ã‚¹ã‚¿æ•°æŒ‡å®šç”¨ãƒˆãƒ©ãƒƒã‚¯ãƒãƒ¼ã®è¨­ç½®
 	namedWindow("Color Image");
-	int number_of_clusters = 0; // •ÏX‰Â”\‚ÈƒNƒ‰ƒXƒ^”
+	int number_of_clusters = 0; // å¤‰æ›´å¯èƒ½ãªã‚¯ãƒ©ã‚¹ã‚¿æ•°
 	int clusters = 3;
 	createTrackbar("Clusters", "Color Image", &clusters, 10);
 
-	// ---------- ƒNƒ‰ƒXƒ^ƒŠƒ“ƒO‚Ì‚½‚ß‚Ì‰Šú‰»ˆ—‚±‚±‚Ü‚Å ---------->>>
+	// ---------- ã‚¯ãƒ©ã‚¹ã‚¿ãƒªãƒ³ã‚°ã®ãŸã‚ã®åˆæœŸåŒ–å‡¦ç†ã“ã“ã¾ã§ ---------->>>
 
-	// <<<---------- kNN–@‚Ì‚½‚ß‚Ì‰Šú‰»ˆ—‚±‚±‚©‚ç ----------
+	// <<<---------- kNNæ³•ã®ãŸã‚ã®åˆæœŸåŒ–å‡¦ç†ã“ã“ã‹ã‚‰ ----------
 
-	Ptr<ml::KNearest> knn = ml::KNearest::create();				// kNN¯•ÊŠí‚Ì¶¬
-	knn->setAlgorithmType(ml::KNearest::Types::BRUTE_FORCE);	// ‹ß–T’Tõ–@‚Ìİ’è
-	knn->setDefaultK(KNN_NUMBER);								// ‹ß–T”‚Ìİ’è
-	knn->setIsClassifier(true);									// ¯•ÊŒ‹‰Ê‚ÍƒJƒeƒSƒŠ
+	Ptr<ml::KNearest> knn = ml::KNearest::create();				// kNNè­˜åˆ¥å™¨ã®ç”Ÿæˆ
+	knn->setAlgorithmType(ml::KNearest::Types::BRUTE_FORCE);	// è¿‘å‚æ¢ç´¢æ³•ã®è¨­å®š
+	knn->setDefaultK(KNN_NUMBER);								// è¿‘å‚æ•°ã®è¨­å®š
+	knn->setIsClassifier(true);									// è­˜åˆ¥çµæœã¯ã‚«ãƒ†ã‚´ãƒª
 	int recognize = -1;	
 	auto lastIncrementTime = std::chrono::steady_clock::now();
-	const int delayInMillis = 150; // ƒCƒ“ƒNƒŠƒƒ“ƒgŠÔ‚Ì‘Ò‹@ŠÔiƒ~ƒŠ•bj// kNN‚É‚æ‚é”F¯‚Ì—L–³iÅ‰‚Í”F¯‚È‚µƒ‚[ƒhj
+	const int delayInMillis = 150; // ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆé–“ã®å¾…æ©Ÿæ™‚é–“ï¼ˆãƒŸãƒªç§’ï¼‰// kNNã«ã‚ˆã‚‹èªè­˜ã®æœ‰ç„¡ï¼ˆæœ€åˆã¯èªè­˜ãªã—ãƒ¢ãƒ¼ãƒ‰ï¼‰
 
-	// ---------- kNN–@‚Ì‚½‚ß‚Ì‰Šú‰»ˆ—‚±‚±‚Ü‚Å ---------->>>
+	// ---------- kNNæ³•ã®ãŸã‚ã®åˆæœŸåŒ–å‡¦ç†ã“ã“ã¾ã§ ---------->>>
 
 	while (1) {
 		
@@ -189,51 +189,51 @@ int main(int argc, char *argv[])
 
 			number_of_clusters = clusters;
 
-			Mat clusteredLabels;  // ƒNƒ‰ƒXƒ^ƒŠƒ“ƒO—p‚ÌŠeƒTƒ“ƒvƒ‹‚ÌƒNƒ‰ƒXŠi”[—p”z—ñ‚ÌéŒ¾
+			Mat clusteredLabels;  // ã‚¯ãƒ©ã‚¹ã‚¿ãƒªãƒ³ã‚°ç”¨ã®å„ã‚µãƒ³ãƒ—ãƒ«ã®ã‚¯ãƒ©ã‚¹æ ¼ç´ç”¨é…åˆ—ã®å®£è¨€
 
-			int result_of_clustering = clusteringPostures(posturesForClustering, number_of_clusters, &clusteredLabels);  // ƒNƒ‰ƒXƒ^ƒŠƒ“ƒOˆ—(ƒNƒ‰ƒXƒ^ƒŠƒ“ƒOŒ‹‰Êó‚¯æ‚è)
-			save = -1;  // ƒTƒ“ƒvƒ‹•Û‘¶‚Í’†~
+			int result_of_clustering = clusteringPostures(posturesForClustering, number_of_clusters, &clusteredLabels);  // ã‚¯ãƒ©ã‚¹ã‚¿ãƒªãƒ³ã‚°å‡¦ç†(ã‚¯ãƒ©ã‚¹ã‚¿ãƒªãƒ³ã‚°çµæœå—ã‘å–ã‚Š)
+			save = -1;  // ã‚µãƒ³ãƒ—ãƒ«ä¿å­˜ã¯ä¸­æ­¢
 
 			if (result_of_clustering == 0) {
-				knn->train(posturesForClustering, ml::ROW_SAMPLE, clusteredLabels);  // kNN–@‚ÌƒTƒ“ƒvƒ‹‚ÌŠwK
-				recognize = 1; // ”F¯ƒ‚[ƒhON
+				knn->train(posturesForClustering, ml::ROW_SAMPLE, clusteredLabels);  // kNNæ³•ã®ã‚µãƒ³ãƒ—ãƒ«ã®å­¦ç¿’
+				recognize = 1; // èªè­˜ãƒ¢ãƒ¼ãƒ‰ON
 				
 			}
 			else recognize = -1;
 		}
 		if (flag == 1) { video2 >> colorImage; }
 		if (flag == 1 && colorImage.empty()) { break; }
-		// <<<---------- RGB-DƒJƒƒ‰‚ğg‚¤ê‡‚ÌƒtƒŒ[ƒ€‰æ‘œæ“¾ˆ—‚±‚±‚©‚ç ----------
+		// <<<---------- RGB-Dã‚«ãƒ¡ãƒ©ã‚’ä½¿ã†å ´åˆã®ãƒ•ãƒ¬ãƒ¼ãƒ ç”»åƒå–å¾—å‡¦ç†ã“ã“ã‹ã‚‰ ----------
 
-		// RGB-DƒJƒƒ‰‚ğg‚¤ê‡‚ÌƒJƒ‰[‰æ‘œ‚Æ‹——£‰æ‘œ‚ÌƒtƒŒ[ƒ€ƒZƒbƒg‚Ìæ“¾
+		// RGB-Dã‚«ãƒ¡ãƒ©ã‚’ä½¿ã†å ´åˆã®ã‚«ãƒ©ãƒ¼ç”»åƒã¨è·é›¢ç”»åƒã®ãƒ•ãƒ¬ãƒ¼ãƒ ã‚»ãƒƒãƒˆã®å–å¾—
 		//frameset frameSet = video.wait_for_frames();
 
-		//// ‹——£‰æ‘œ‚ğƒJƒ‰[‰æ‘œ‚É‡‚í‚¹‚é
+		//// è·é›¢ç”»åƒã‚’ã‚«ãƒ©ãƒ¼ç”»åƒã«åˆã‚ã›ã‚‹
 		//frameSet = alignToColor.process(frameSet);
 
-		//// ƒtƒŒ[ƒ€ƒZƒbƒg‚©‚çƒJƒ‰[‰æ‘œ‚Æ‹——£‰æ‘œ‚ÌƒtƒŒ[ƒ€‚ğŠl“¾
+		//// ãƒ•ãƒ¬ãƒ¼ãƒ ã‚»ãƒƒãƒˆã‹ã‚‰ã‚«ãƒ©ãƒ¼ç”»åƒã¨è·é›¢ç”»åƒã®ãƒ•ãƒ¬ãƒ¼ãƒ ã‚’ç²å¾—
 		//video_frame colorFrame = frameSet.get_color_frame();
 		//depth_frame depthFrame = frameSet.get_depth_frame();
 
-		//// MatŒ^‚ÌƒJƒ‰[‰æ‘œ‚Æ‹——£‰æ‘œƒf[ƒ^‚ğŠl“¾
+		//// Matå‹ã®ã‚«ãƒ©ãƒ¼ç”»åƒã¨è·é›¢ç”»åƒãƒ‡ãƒ¼ã‚¿ã‚’ç²å¾—
 		//Mat colorImage(Size(IMAGE_WIDTH, IMAGE_HEIGHT), CV_8UC3, (void*)colorFrame.get_data(), Mat::AUTO_STEP);
 		//Mat depthImage16(Size(IMAGE_WIDTH, IMAGE_HEIGHT), CV_16UC1, (void*)depthFrame.get_data(), Mat::AUTO_STEP);
 
-		// ---------- RGB-DƒJƒƒ‰‚ğg‚¤ê‡‚ÌƒtƒŒ[ƒ€‰æ‘œæ“¾ˆ—‚±‚±‚Ü‚Å ---------->>>
+		// ---------- RGB-Dã‚«ãƒ¡ãƒ©ã‚’ä½¿ã†å ´åˆã®ãƒ•ãƒ¬ãƒ¼ãƒ ç”»åƒå–å¾—å‡¦ç†ã“ã“ã¾ã§ ---------->>>
 
-		// <<<---------- ’Êí‚ÌƒJƒ‰[ƒJƒƒ‰‚ğg‚¤ê‡‚ÌƒtƒŒ[ƒ€‰æ‘œ‚Ìæ“¾‚±‚±‚©‚ç ----------
+		// <<<---------- é€šå¸¸ã®ã‚«ãƒ©ãƒ¼ã‚«ãƒ¡ãƒ©ã‚’ä½¿ã†å ´åˆã®ãƒ•ãƒ¬ãƒ¼ãƒ ç”»åƒã®å–å¾—ã“ã“ã‹ã‚‰ ----------
 
 		//Mat colorImage;
 		//camera >> colorImage;
 		//resize(colorImage, colorImage, Size(IMAGE_WIDTH, IMAGE_HEIGHT));
 
-		// ---------- ’Êí‚ÌƒJƒ‰[ƒJƒƒ‰‚ğg‚¤ê‡‚ÌƒtƒŒ[ƒ€‰æ‘œ‚Ìæ“¾‚±‚±‚Ü‚Å ---------->>>
+		// ---------- é€šå¸¸ã®ã‚«ãƒ©ãƒ¼ã‚«ãƒ¡ãƒ©ã‚’ä½¿ã†å ´åˆã®ãƒ•ãƒ¬ãƒ¼ãƒ ç”»åƒã®å–å¾—ã“ã“ã¾ã§ ---------->>>
 
 
-		// p¨ƒf[ƒ^EƒNƒ‰ƒXƒ^ƒ‰ƒxƒ‹Ši”[—p”z—ñ‚Ö‚Ìs’Ç‰Á
+		// å§¿å‹¢ãƒ‡ãƒ¼ã‚¿ãƒ»ã‚¯ãƒ©ã‚¹ã‚¿ãƒ©ãƒ™ãƒ«æ ¼ç´ç”¨é…åˆ—ã¸ã®è¡Œè¿½åŠ 
 		if (posturesForClustering.rows <= storedSamples)posturesForClustering.resize(storedSamples + 1);
 
-		// <<<---------- OpenPose‚É‚æ‚ép¨„’èˆ—‚±‚±‚©‚ç ----------
+		// <<<---------- OpenPoseã«ã‚ˆã‚‹å§¿å‹¢æ¨å®šå‡¦ç†ã“ã“ã‹ã‚‰ ----------
 
 		const op::Point<int> imageSize{ colorImage.cols, colorImage.rows };
 		vector<double> scaleInputToNetInputs;
@@ -245,36 +245,36 @@ int main(int argc, char *argv[])
 		const auto netInputArray = cvMatToOpInput.createArray(colorImage, scaleInputToNetInputs, netInputSizes);
 		poseExtractorCaffe.forwardPass(netInputArray, imageSize, scaleInputToNetInputs);
 
-		// ---------- OpenPose‚É‚æ‚ép¨„’èˆ—‚±‚±‚Ü‚Å ---------->>>
+		// ---------- OpenPoseã«ã‚ˆã‚‹å§¿å‹¢æ¨å®šå‡¦ç†ã“ã“ã¾ã§ ---------->>>
 
 
-		// <<<---------- „’èŒ‹‰Ê‚Ìp¨•\¦ˆ—‚±‚±‚©‚ç ----------
+		// <<<---------- æ¨å®šçµæœã®å§¿å‹¢è¡¨ç¤ºå‡¦ç†ã“ã“ã‹ã‚‰ ----------
 
 		const auto poseKeypoints = poseExtractorCaffe.getPoseKeypoints();
 		const auto numberPeopleDetected = poseKeypoints.getSize(0);
 		const auto numberBodyParts = poseKeypoints.getSize(1);
 
-		// l•¨–ˆ‚Ìˆ—
+		// äººç‰©æ¯ã®å‡¦ç†
 		for (int i = 0; i < numberPeopleDetected; i++) {
 
-			// ‘ÎÛl•¨‚Ì„’èp¨ƒf[ƒ^Ši”[—p”z—ñ‚ÌéŒ¾
+			// å¯¾è±¡äººç‰©ã®æ¨å®šå§¿å‹¢ãƒ‡ãƒ¼ã‚¿æ ¼ç´ç”¨é…åˆ—ã®å®£è¨€
 			Mat observedPosture(1, 3 * NUMBER_OF_JOINTS, CV_32FC1);
 			Mat observedPosture2(1, 3 * NUMBER_OF_JOINTS, CV_32FC1);
-			float leftHandX = poseKeypoints[{i, 7, 0}] - poseKeypoints[{i, 1, 0}]; // ¶èñ
+			float leftHandX = poseKeypoints[{i, 7, 0}] - poseKeypoints[{i, 1, 0}]; // å·¦æ‰‹é¦–
 			float leftHandY = poseKeypoints[{i, 7, 1}] - poseKeypoints[{i, 1, 1}];
-			float rightHandX = poseKeypoints[{i, 4, 0}] - poseKeypoints[{i, 1, 0}]; // ‰Eèñ
+			float rightHandX = poseKeypoints[{i, 4, 0}] - poseKeypoints[{i, 1, 0}]; // å³æ‰‹é¦–
 			float rightHandY = poseKeypoints[{i, 4, 1}] - poseKeypoints[{i, 1, 1}];
 			
 			float leftMovement = sqrt(pow(leftHandX - prevLeftHandX, 2) + pow(leftHandY - prevLeftHandY, 2));
 			float rightMovement = sqrt(pow(rightHandX - prevRightHandX, 2) + pow(rightHandY - prevRightHandY, 2));
 			auto currentTime = std::chrono::steady_clock::now();
-			// ‘O‰ñ‚ÌƒCƒ“ƒNƒŠƒƒ“ƒg‚©‚ç‚ÌŒo‰ßŠÔ‚ğŒvZ
+			// å‰å›ã®ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆã‹ã‚‰ã®çµŒéæ™‚é–“ã‚’è¨ˆç®—
 			auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastIncrementTime).count();
 
-			// ŠÖß–ˆ‚Ìˆ—
+			// é–¢ç¯€æ¯ã®å‡¦ç†
 			for (int j = 0; j < numberBodyParts; j++) {
 
-				// i”Ô–Ú‚Ìl•¨‚Ìj”Ô–Ú‚ÌŠÖßˆÊ’u(x,y)‚ÆM—Š“xc‚Ìæ“¾
+				// iç•ªç›®ã®äººç‰©ã®jç•ªç›®ã®é–¢ç¯€ä½ç½®(x,y)ã¨ä¿¡é ¼åº¦cã®å–å¾—
 
 				const auto x = poseKeypoints[{i, j, 0}] - poseKeypoints[{i, 8, 0}];
 				const auto y = poseKeypoints[{i, j, 1}] - poseKeypoints[{i, 8, 1}];
@@ -282,10 +282,10 @@ int main(int argc, char *argv[])
 
 
 
-				// i”Ô–Ú‚Ìl•¨‚Ìj”Ô–Ú‚ÌŠÖßˆÊ’u(x,y)‚ğCM—Š“xc‚É”ä—á‚µ‚½’¼Œa‚Ì‰~‚ÅcolorImageã‚É•`‰æ
+				// iç•ªç›®ã®äººç‰©ã®jç•ªç›®ã®é–¢ç¯€ä½ç½®(x,y)ã‚’ï¼Œä¿¡é ¼åº¦cã«æ¯”ä¾‹ã—ãŸç›´å¾„ã®å††ã§colorImageä¸Šã«æç”»
 				drawJoint(i, j, c, x + poseKeypoints[{i, 8, 0}], y + poseKeypoints[{i, 8, 1}], colorImage);
 
-				// ã‚ÌŠÖßˆÊ’u‚ÆM—Š“x‚ğ„’èp¨ƒf[ƒ^Ši”[—p”z—ñ‚ÉŠi”[
+				// ä¸Šã®é–¢ç¯€ä½ç½®ã¨ä¿¡é ¼åº¦ã‚’æ¨å®šå§¿å‹¢ãƒ‡ãƒ¼ã‚¿æ ¼ç´ç”¨é…åˆ—ã«æ ¼ç´
 
 
 				observedPosture.at<float>(3 * j) = x;
@@ -296,9 +296,9 @@ int main(int argc, char *argv[])
 				observedPosture2.at<float>(3 * j + 2) = c;
 
 
-				// 0”Ô–Ú‚Ìl•¨‚Ìê‡
+				// 0ç•ªç›®ã®äººç‰©ã®å ´åˆ
 				if (i == 0 && flag == 0) {
-					// ã‚ÌŠÖßˆÊ’u‚ÆM—Š“x‚ğƒNƒ‰ƒXƒ^ƒŠƒ“ƒO‘ÎÛp¨‚Ì•Û‘¶—p”z—ñ‚É‚à•Û‘¶
+					// ä¸Šã®é–¢ç¯€ä½ç½®ã¨ä¿¡é ¼åº¦ã‚’ã‚¯ãƒ©ã‚¹ã‚¿ãƒªãƒ³ã‚°å¯¾è±¡å§¿å‹¢ã®ä¿å­˜ç”¨é…åˆ—ã«ã‚‚ä¿å­˜
 					posturesForClustering.at<float>(storedSamples, 3 * j) = x;
 					posturesForClustering.at<float>(storedSamples, 3 * j + 1) = y;
 					posturesForClustering.at<float>(storedSamples, 3 * j + 2) = c;
@@ -307,19 +307,19 @@ int main(int argc, char *argv[])
 
 			}
 
-			// „’èp¨ƒf[ƒ^Ši”[—p”z—ñ‚ğg‚Á‚Ä‘Ìßü‚Ì•`‰æ
+			// æ¨å®šå§¿å‹¢ãƒ‡ãƒ¼ã‚¿æ ¼ç´ç”¨é…åˆ—ã‚’ä½¿ã£ã¦ä½“ç¯€ç·šã®æç”»
 			drawLimb(observedPosture2, 0, i, colorImage);
 
-			// •Û‘¶ƒ‚[ƒh‚ªON‚Å0”Ô–Ú‚Ìl•¨‚Ìê‡‚ÍƒNƒ‰ƒXƒ^ƒŠƒ“ƒO‘ÎÛp¨‚Ì•Û‘¶—p”z—ñ‚É•Û‘¶‚³‚ê‚½p¨ƒTƒ“ƒvƒ‹”‚ÌƒJƒEƒ“ƒgƒAƒbƒv
+			// ä¿å­˜ãƒ¢ãƒ¼ãƒ‰ãŒONã§0ç•ªç›®ã®äººç‰©ã®å ´åˆã¯ã‚¯ãƒ©ã‚¹ã‚¿ãƒªãƒ³ã‚°å¯¾è±¡å§¿å‹¢ã®ä¿å­˜ç”¨é…åˆ—ã«ä¿å­˜ã•ã‚ŒãŸå§¿å‹¢ã‚µãƒ³ãƒ—ãƒ«æ•°ã®ã‚«ã‚¦ãƒ³ãƒˆã‚¢ãƒƒãƒ—
 			if (save > 0 && i == 0 && flag == 0) {
 				storedSamples++;
 				printf("%d samples have stored\n", storedSamples);
 			}
 
-			// ”F¯ƒ‚[ƒhON ‚©‚Â 0”Ô–Ú‚Ìl•¨‚Ìê‡
+			// èªè­˜ãƒ¢ãƒ¼ãƒ‰ON ã‹ã¤ 0ç•ªç›®ã®äººç‰©ã®å ´åˆ
 			if (i == 0 && recognize > 0 && flag == 1) {
 
-				// „’èp¨ƒf[ƒ^Ši”[—p”z—ñ‚ğ—˜—p‚µ‚Ä”F¯E•\¦
+				// æ¨å®šå§¿å‹¢ãƒ‡ãƒ¼ã‚¿æ ¼ç´ç”¨é…åˆ—ã‚’åˆ©ç”¨ã—ã¦èªè­˜ãƒ»è¡¨ç¤º
 
 				int response = (int)knn->predict(observedPosture);
 
@@ -334,7 +334,7 @@ int main(int argc, char *argv[])
 
 					
 						count++;
-						lastIncrementTime = currentTime; // ƒCƒ“ƒNƒŠƒƒ“ƒg‚µ‚½“_‚Ì‚ğ‹L˜^
+						lastIncrementTime = currentTime; // ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆã—ãŸæ™‚ç‚¹ã®æ™‚åˆ»ã‚’è¨˜éŒ²
 						presponse2 = presponse;
 						presponse = response;
 						
@@ -354,34 +354,34 @@ int main(int argc, char *argv[])
 
 		}
 
-		// ---------- „’èŒ‹‰Ê‚Ìp¨•\¦ˆ—‚±‚±‚Ü‚Å ---------->>>
+		// ---------- æ¨å®šçµæœã®å§¿å‹¢è¡¨ç¤ºå‡¦ç†ã“ã“ã¾ã§ ---------->>>
 
 		imshow("Color Image", colorImage);
 
 
 		int key = cv::waitKey(1);
 
-		// qƒL[‚ÅI—¹
+		// qã‚­ãƒ¼ã§çµ‚äº†
 		if (key == 'q') break;
 
-		// sƒL[‚ÅƒNƒ‰ƒXƒ^ƒŠƒ“ƒO—p‚ÌƒTƒ“ƒvƒ‹•Û‘¶ON/OFF
+		// sã‚­ãƒ¼ã§ã‚¯ãƒ©ã‚¹ã‚¿ãƒªãƒ³ã‚°ç”¨ã®ã‚µãƒ³ãƒ—ãƒ«ä¿å­˜ON/OFF
 		else if (key == 's') save *= -1;
 
-		// cƒL[‚ÅƒNƒ‰ƒXƒ^ƒŠƒ“ƒO
+		// cã‚­ãƒ¼ã§ã‚¯ãƒ©ã‚¹ã‚¿ãƒªãƒ³ã‚°
 
 
-		// rƒL[‚ÅƒŠƒZƒbƒg
+		// rã‚­ãƒ¼ã§ãƒªã‚»ãƒƒãƒˆ
 		else if (key == 'r') {
 
-			// ƒNƒ‰ƒXƒ^ƒŠƒ“ƒO—p‚Ì•Û‘¶ƒTƒ“ƒvƒ‹‰Šú‰»
+			// ã‚¯ãƒ©ã‚¹ã‚¿ãƒªãƒ³ã‚°ç”¨ã®ä¿å­˜ã‚µãƒ³ãƒ—ãƒ«åˆæœŸåŒ–
 			storedSamples = 0;
 			posturesForClustering.resize(1);
 
-			// ƒNƒ‰ƒXƒ^ƒŠƒ“ƒOŒ‹‰Ê‚ÌÁ‹
+			// ã‚¯ãƒ©ã‚¹ã‚¿ãƒªãƒ³ã‚°çµæœã®æ¶ˆå»
 			if (number_of_clusters > 0) removeWindowsForClusteredCenters(number_of_clusters);
 
-			save = -1;  // ƒTƒ“ƒvƒ‹•Û‘¶‚Í’†~
-			recognize = -1; // ”F¯ƒ‚[ƒhOFF
+			save = -1;  // ã‚µãƒ³ãƒ—ãƒ«ä¿å­˜ã¯ä¸­æ­¢
+			recognize = -1; // èªè­˜ãƒ¢ãƒ¼ãƒ‰OFF
 
 		}
 
@@ -391,18 +391,18 @@ int main(int argc, char *argv[])
 
 }
 
-// ƒNƒ‰ƒXƒ^ƒŠƒ“ƒO
+// ã‚¯ãƒ©ã‚¹ã‚¿ãƒªãƒ³ã‚°
 int clusteringPostures(Mat posturesForClustering, int numberOfClusters, Mat *labels)
 {
-	// ƒNƒ‰ƒXƒ^”‚ª0‚Ì‚Æ‚«‚Í‰½‚à‚µ‚È‚¢
+	// ã‚¯ãƒ©ã‚¹ã‚¿æ•°ãŒ0ã®ã¨ãã¯ä½•ã‚‚ã—ãªã„
 	if (numberOfClusters == 0) return -1;
 
-	// <<<---------- ƒNƒ‰ƒXƒ^ƒŠƒ“ƒOˆ—‚±‚±‚©‚ç ----------
+	// <<<---------- ã‚¯ãƒ©ã‚¹ã‚¿ãƒªãƒ³ã‚°å‡¦ç†ã“ã“ã‹ã‚‰ ----------
 
-	// •ª—ŞƒNƒ‰ƒXƒ^CƒNƒ‰ƒXƒ^’†S‚Ìo—Í—p”z—ñ‚ÌéŒ¾
+	// åˆ†é¡ã‚¯ãƒ©ã‚¹ã‚¿ï¼Œã‚¯ãƒ©ã‚¹ã‚¿ä¸­å¿ƒã®å‡ºåŠ›ç”¨é…åˆ—ã®å®£è¨€
 	Mat centers;
 
-	// k•½‹Ï–@‚ÌÀs
+	// kå¹³å‡æ³•ã®å®Ÿè¡Œ
 	kmeans(posturesForClustering, numberOfClusters, *labels,
 		TermCriteria(TermCriteria::EPS + TermCriteria::COUNT, 10, 1.0), 1, KMEANS_PP_CENTERS, centers);
 
@@ -411,20 +411,20 @@ int clusteringPostures(Mat posturesForClustering, int numberOfClusters, Mat *lab
 		printf("Sample_%d = Cluster_%d\n", k, cluster);
 	}
 
-	// ---------- ƒNƒ‰ƒXƒ^ƒŠƒ“ƒOˆ—‚±‚±‚Ü‚Å ---------->>>
+	// ---------- ã‚¯ãƒ©ã‚¹ã‚¿ãƒªãƒ³ã‚°å‡¦ç†ã“ã“ã¾ã§ ---------->>>
 
-	// <<<---------- ƒNƒ‰ƒXƒ^’†S‚Ì•`‰æ‚±‚±‚©‚ç ----------
+	// <<<---------- ã‚¯ãƒ©ã‚¹ã‚¿ä¸­å¿ƒã®æç”»ã“ã“ã‹ã‚‰ ----------
 
-	// ƒNƒ‰ƒXƒ^”‚¾‚¯ŒJ‚è•Ô‚µ
+	// ã‚¯ãƒ©ã‚¹ã‚¿æ•°ã ã‘ç¹°ã‚Šè¿”ã—
 	for (int i = 0; i < numberOfClusters; i++) {
 
-		// •`‰æ—p‰æ‘œ‚ğ•‚É“h‚è‚Â‚Ô‚·
+		// æç”»ç”¨ç”»åƒã‚’é»’ã«å¡—ã‚Šã¤ã¶ã™
 		Mat centroidImage = Mat::zeros(IMAGE_HEIGHT, IMAGE_WIDTH, CV_8UC3);
 
-		// ŠÖß”‚¾‚¯ŒJ‚è•Ô‚µ
+		// é–¢ç¯€æ•°ã ã‘ç¹°ã‚Šè¿”ã—
 		for (int j = 0; j < NUMBER_OF_JOINTS; j++) {
 
-			// ŠÖßˆÊ’u‚ÌŠl“¾
+			// é–¢ç¯€ä½ç½®ã®ç²å¾—
 			float x, y, c;
 			x = centers.at<float>(i, 3 * j);
 			y = centers.at<float>(i, 3 * j + 1);
@@ -434,22 +434,22 @@ int clusteringPostures(Mat posturesForClustering, int numberOfClusters, Mat *lab
 
 		drawLimb(centers + 300, i, i, centroidImage);
 
-		// •\¦—pƒEƒBƒ“ƒhƒE–¼‚Ìİ’è
+		// è¡¨ç¤ºç”¨ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦åã®è¨­å®š
 		char window_name[20];
 		sprintf_s(window_name, 20, "Cluster%d", i);
 
-		// ƒEƒBƒ“ƒhƒE‚É•\¦
+		// ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã«è¡¨ç¤º
 		imshow(window_name, centroidImage);
 
 	}
 
-	// ---------- ƒNƒ‰ƒXƒ^’†S‚Ì•`‰æ‚±‚±‚Ü‚Å ---------->>>
+	// ---------- ã‚¯ãƒ©ã‚¹ã‚¿ä¸­å¿ƒã®æç”»ã“ã“ã¾ã§ ---------->>>
 
 	return 0;
 
 }
 
-// ”CˆÓ‚ÌŠÖßˆÊ’u‚Ì•`‰æ
+// ä»»æ„ã®é–¢ç¯€ä½ç½®ã®æç”»
 void drawJoint(int i, int j, float c, float x, float y, Mat plane)
 {
 
@@ -459,17 +459,17 @@ void drawJoint(int i, int j, float c, float x, float y, Mat plane)
 
 }
 
-// ”CˆÓ‚Ìp¨‚Ì‘Ìßü‚Ì•`‰æ
+// ä»»æ„ã®å§¿å‹¢ã®ä½“ç¯€ç·šã®æç”»
 void drawLimb(Mat postures, int sample, int person, Mat image)
 {
-	// ‘Ìßü‚Ì”‚¾‚¯ŒJ‚è•Ô‚µ
+	// ä½“ç¯€ç·šã®æ•°ã ã‘ç¹°ã‚Šè¿”ã—
 	for (int i = 0; i < 15; i++) {
 
-		// —¼’[‚ÌŠÖß”Ô†‚Ìæ“¾
+		// ä¸¡ç«¯ã®é–¢ç¯€ç•ªå·ã®å–å¾—
 		int p0 = limb[i][0];
 		int p1 = limb[i][1];
 
-		// ŠÖßˆÊ’u‚Ìæ“¾
+		// é–¢ç¯€ä½ç½®ã®å–å¾—
 		const auto x0 = postures.at<float>(sample, 3 * p0);
 		const auto y0 = postures.at<float>(sample, 3 * p0 + 1);
 		const auto c0 = postures.at<float>(sample, 3 * p0 + 2);
@@ -477,7 +477,7 @@ void drawLimb(Mat postures, int sample, int person, Mat image)
 		const auto y1 = postures.at<float>(sample, 3 * p1 + 1);
 		const auto c1 = postures.at<float>(sample, 3 * p1 + 2);
 
-		// ‚Ç‚¿‚ç‚ÌŠÖß‚ÌM—Š“x‚à‹–—eÅ¬’lˆÈã‚È‚ç‚Î•`‰æ
+		// ã©ã¡ã‚‰ã®é–¢ç¯€ã®ä¿¡é ¼åº¦ã‚‚è¨±å®¹æœ€å°å€¤ä»¥ä¸Šãªã‚‰ã°æç”»
 		if (c0 > MINIMUM_CONFIDENCE && c1 > MINIMUM_CONFIDENCE) {
 			cv::line(image, cv::Point(x0, y0), cv::Point(x1, y1), color[person % 7], 2, 8, 0);
 		}
@@ -486,17 +486,17 @@ void drawLimb(Mat postures, int sample, int person, Mat image)
 
 }
 
-// ƒNƒ‰ƒXƒ^’†S•\¦—pƒEƒBƒ“ƒhƒE‚ÌÁ‹
+// ã‚¯ãƒ©ã‚¹ã‚¿ä¸­å¿ƒè¡¨ç¤ºç”¨ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã®æ¶ˆå»
 void removeWindowsForClusteredCenters(int numberOfClusters)
 {
 
 	for (int i = 0; i < numberOfClusters; i++) {
 
-		// •\¦—pƒEƒBƒ“ƒhƒE–¼‚Ìİ’è
+		// è¡¨ç¤ºç”¨ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦åã®è¨­å®š
 		char window_name[20];
 		sprintf_s(window_name, 20, "Cluster%d", i);
 
-		// ƒEƒBƒ“ƒhƒE‚É•\¦
+		// ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã«è¡¨ç¤º
 		destroyWindow(window_name);
 
 	}
